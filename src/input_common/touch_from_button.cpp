@@ -2,6 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include "common/string_util.h"
 #include "core/3ds.h"
 #include "core/settings.h"
 #include "input_common/touch_from_button.h"
@@ -17,8 +18,21 @@ public:
                                              .touch_from_button_map_index]
                  .buttons) {
 
+            std::vector<std::string> buttons{config_entry};
+            if (config_entry.find("[") != std::string::npos) {
+                Common::SplitString(
+                    config_entry.substr(config_entry.find("[") + 1,
+                                        config_entry.find("]") - (config_entry.find("[") + 1)),
+                    '|', buttons);
+            }
+
+            std::vector<std::unique_ptr<Input::ButtonDevice>> devices{};
+            for (auto& button : buttons) {
+                devices.emplace_back(Input::CreateDevice<Input::ButtonDevice>(button));
+            }
+
             const Common::ParamPackage package{config_entry};
-            map.emplace_back(Input::CreateDevice<Input::ButtonDevice>(config_entry),
+            map.emplace_back(std::move(devices),
                              std::clamp(package.Get("x", 0), 0, Core::kScreenBottomWidth),
                              std::clamp(package.Get("y", 0), 0, Core::kScreenBottomHeight));
         }
@@ -26,7 +40,13 @@ public:
 
     std::tuple<float, float, bool> GetStatus() const override {
         for (const auto& m : map) {
-            const bool state = std::get<0>(m)->GetStatus();
+            bool state = true;
+            for (const auto& device : std::get<0>(m)) {
+                state &= device->GetStatus();
+                if (!state) {
+                    break;
+                }
+            }
             if (state) {
                 const float x = static_cast<float>(std::get<1>(m)) / Core::kScreenBottomWidth;
                 const float y = static_cast<float>(std::get<2>(m)) / Core::kScreenBottomHeight;
@@ -37,7 +57,8 @@ public:
     }
 
 private:
-    std::vector<std::tuple<std::unique_ptr<Input::ButtonDevice>, int, int>> map; // button, x, y
+    std::vector<std::tuple<std::vector<std::unique_ptr<Input::ButtonDevice>>, int, int>>
+        map; // buttons, x, y
 };
 
 std::unique_ptr<Input::TouchDevice> TouchFromButtonFactory::Create(
