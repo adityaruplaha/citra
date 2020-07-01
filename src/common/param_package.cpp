@@ -7,7 +7,7 @@
 #include <regex>
 #include <utility>
 #include <vector>
-#include <boost/algorithm/string/join.hpp>
+#include <fmt/format.h>
 #include "common/logging/log.h"
 #include "common/param_package.h"
 #include "common/string_util.h"
@@ -260,8 +260,7 @@ void ParamPackage::Set(const std::string& key, std::string value) {
 }
 
 void ParamPackage::Set(const std::string& key, std::vector<std::string> value) {
-    data.insert_or_assign(key,
-                          "[" + boost::algorithm::join(value, std::string{LIST_SEPARATOR}) + "]");
+    data.insert_or_assign(key, fmt::format("[{}]", fmt::join(value, std::string{LIST_SEPARATOR})));
 }
 
 void ParamPackage::Set(const std::string& key, int value) {
@@ -269,11 +268,7 @@ void ParamPackage::Set(const std::string& key, int value) {
 }
 
 void ParamPackage::Set(const std::string& key, std::vector<int> value) {
-    std::vector<std::string> vec{};
-    std::transform(value.begin(), value.end(), std::back_inserter(vec),
-                   [](float a) -> std::string const { return std::to_string(a); });
-    data.insert_or_assign(key,
-                          "[" + boost::algorithm::join(vec, std::string{LIST_SEPARATOR}) + "]");
+    data.insert_or_assign(key, fmt::format("[{}]", fmt::join(value, std::string{LIST_SEPARATOR})));
 }
 
 void ParamPackage::Set(const std::string& key, float value) {
@@ -281,11 +276,7 @@ void ParamPackage::Set(const std::string& key, float value) {
 }
 
 void ParamPackage::Set(const std::string& key, std::vector<float> value) {
-    std::vector<std::string> vec{};
-    std::transform(value.begin(), value.end(), std::back_inserter(vec),
-                   [](float a) -> std::string { return std::to_string(a); });
-    data.insert_or_assign(key,
-                          "[" + boost::algorithm::join(vec, std::string{LIST_SEPARATOR}) + "]");
+    data.insert_or_assign(key, fmt::format("[{}]", fmt::join(value, std::string{LIST_SEPARATOR})));
 }
 
 void ParamPackage::Set(const std::string& key, ParamPackage value) {
@@ -293,14 +284,14 @@ void ParamPackage::Set(const std::string& key, ParamPackage value) {
 }
 
 void ParamPackage::Set(const std::string& key, std::vector<ParamPackage> value) {
-    std::vector<std::string> vec{};
-    std::transform(value.begin(), value.end(), std::back_inserter(vec),
-                   [](ParamPackage& a) -> std::string { return a.Serialize(); });
-    data.insert_or_assign(key,
-                          "[" + boost::algorithm::join(vec, std::string{LIST_SEPARATOR}) + "]");
+    data.insert_or_assign(key, fmt::format("[{}]", fmt::join(value, std::string{LIST_SEPARATOR})));
 }
 
 // Other methods
+
+std::ostream& operator<<(std::ostream& os, const ParamPackage& p) {
+    return os << p.Serialize();
+}
 
 bool ParamPackage::Has(const std::string& key) const {
     return data.find(key) != data.end();
@@ -362,3 +353,15 @@ std::string ParamPackage::ReplacePlaceholders(const std::string& str,
 }
 
 } // namespace Common
+
+template <>
+struct fmt::formatter<Common::ParamPackage> {
+    constexpr auto parse(fmt::format_parse_context& ctx) {
+        return ctx.begin();
+    }
+
+    template <typename FormatContext>
+    auto format(const Common::ParamPackage& p, FormatContext& ctx) {
+        return format_to(ctx.out(), "{}", p.Serialize());
+    }
+};

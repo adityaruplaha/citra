@@ -26,6 +26,7 @@ public:
     ParamPackage& operator=(ParamPackage&& other) = default;
 
     std::string Serialize() const;
+    friend std::ostream& operator<<(std::ostream& os, const ParamPackage& p);
 
     // Getters
     std::string Get(const std::string& key, const std::string& default_value) const;
